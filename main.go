@@ -45,6 +45,20 @@ func main() {
 	hv := verificacion.NewHandler(verifStore, db, urlProvider)
 
 	mux := http.NewServeMux()
+
+	// Health check para UptimeRobot (plan free hace ping cada 5 min) y para
+	// mantener despierto el servicio de Render. Responde 200 sin tocar la BD.
+	arranque := time.Now()
+	salud := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok","uptime":"` + time.Since(arranque).Round(time.Second).String() + `"}`))
+	}
+	mux.HandleFunc("GET /", salud)
+	mux.HandleFunc("GET /ping", salud)
+	mux.HandleFunc("GET /health", salud)
+	mux.HandleFunc("HEAD /ping", salud)
+
 	mux.HandleFunc("POST /login", h.Login)
 	mux.HandleFunc("POST /set-password", h.SetPassword)
 	mux.HandleFunc("GET /estudiante", he.Buscar)
@@ -66,7 +80,7 @@ func main() {
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
