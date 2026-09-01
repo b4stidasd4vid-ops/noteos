@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: noteos-server
+    runtime: go
+    repo: https://github.com/b4stidasd4vid-ops/noteos.git
+    plan: free
+    buildCommand: go build -o noteos-server .
+    startCommand: ./noteos-server
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
