@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 
 	"noteos-server/internal/auth"
 	"noteos-server/internal/estudiantes"
+	"noteos-server/internal/firestoreconfig"
 	"noteos-server/internal/supabase"
 	"noteos-server/internal/verificacion"
 )
@@ -24,9 +27,22 @@ func main() {
 
 	db := supabase.NewClient(supabaseURL, serviceKey)
 	verifStore := verificacion.NewStore()
+
+	// Config desde Firestore (p. ej. URL del Apps Script de correo, campo
+	// "url_pstm"). Si no hay credenciales de Firebase, el resto del server
+	// sigue funcionando y solo fallará el envío de códigos con un mensaje
+	// claro.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	urlProvider, err := firestoreconfig.New(ctx)
+	if err != nil {
+		log.Printf("aviso: firestore no disponible (%v); el envío de códigos no funcionará", err)
+		urlProvider = nil
+	}
+
 	h := auth.NewHandler(db, verifStore)
 	he := estudiantes.NewHandler(db)
-	hv := verificacion.NewHandler(verifStore, db)
+	hv := verificacion.NewHandler(verifStore, db, urlProvider)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /login", h.Login)

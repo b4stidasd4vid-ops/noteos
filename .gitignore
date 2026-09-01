@@ -1,3 +1,9 @@
 .env
 /noteos-server
 /noteos-server.exe
+
+# Credenciales Firebase / Service Account (secretos, nunca subir)
+*-firebase-adminsdk-*.json
+*.firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+fir-parking-14c83-firebase-adminsdk-fbsvc-f13b42f611.json

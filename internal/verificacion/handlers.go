@@ -7,16 +7,18 @@ import (
 	"strconv"
 	"strings"
 
+	"noteos-server/internal/firestoreconfig"
 	"noteos-server/internal/supabase"
 )
 
 type Handler struct {
 	Store *Store
 	DB    *supabase.Client
+	URL   *firestoreconfig.URLProvider
 }
 
-func NewHandler(store *Store, db *supabase.Client) *Handler {
-	return &Handler{Store: store, DB: db}
+func NewHandler(store *Store, db *supabase.Client, urlProvider *firestoreconfig.URLProvider) *Handler {
+	return &Handler{Store: store, DB: db, URL: urlProvider}
 }
 
 type estudianteRow struct {
@@ -73,10 +75,10 @@ func (h *Handler) Enviar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Si mandaron un correo personal nuevo, se guarda de una vez en
-	// estudiantes (no solo al crear la contraseña): así queda disponible
-	// para reenviar el código sin que el cliente tenga que volver a
-	// mandarlo, y para lo que se necesite a futuro.
+	// Se exige que haya al menos un medio de contacto: el correo personal que
+	// manda el cliente (se guarda de una vez para poder reenviar el código sin
+	// que el cliente lo vuelva a mandar) o el correo institucional que ya está
+	// en la base de datos. Si no hay ninguno, no se puede enviar el código.
 	req.CorreoPersonal = strings.TrimSpace(req.CorreoPersonal)
 	if req.CorreoPersonal != "" && req.CorreoPersonal != e.CorreoPersonal {
 		patchQ := url.Values{"id": {"eq." + strconv.FormatInt(e.ID, 10)}}
@@ -92,11 +94,21 @@ func (h *Handler) Enviar(w http.ResponseWriter, r *http.Request) {
 		correoDestino = e.CorreoEstudiantil
 	}
 	if correoDestino == "" {
-		writeJSON(w, http.StatusBadRequest, respuesta{Error: "no hay un correo al cual enviar el código"})
+		writeJSON(w, http.StatusBadRequest, respuesta{Error: "hace falta un correo personal o institucional para enviar el código"})
 		return
 	}
 
-	codigo, err := enviarCodigo(correoDestino)
+	if h.URL == nil {
+		writeJSON(w, http.StatusInternalServerError, respuesta{Error: "el servidor no está configurado para enviar códigos"})
+		return
+	}
+	appsScriptURL, err := h.URL.URL(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, respuesta{Error: "no se pudo obtener la URL del correo: " + err.Error()})
+		return
+	}
+
+	codigo, err := enviarCodigo(appsScriptURL, correoDestino)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, respuesta{Error: "no se pudo enviar el código: " + err.Error()})
 		return

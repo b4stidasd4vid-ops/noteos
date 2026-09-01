@@ -8,21 +8,18 @@ import (
 	"time"
 )
 
-// appsScriptURL apunta al Web App de Google Apps Script que manda el correo
-// (usa GmailApp.sendEmail). Es una solución temporal para probar el envío
-// mientras se monta el servicio definitivo.
-const appsScriptURL = "https://script.google.com/macros/s/AKfycbywif72Rjxm2WKYEG47kJeAHlKUreL5_sORgM927F2001MuuxQBeqWVWAV8ezGElfEv/exec"
-
 type appsScriptResponse struct {
 	Status     string `json:"status"`
 	Message    string `json:"message"`
 	PinEnviado string `json:"pinEnviado"`
 }
 
-// enviarCodigo le pide al Apps Script que genere y mande un código al
-// correo dado, y devuelve el código que efectivamente envió (el propio
-// script lo genera; acá solo lo recibimos para poder validarlo después).
-func enviarCodigo(correo string) (string, error) {
+// enviarCodigo le pide al Web App de Google Apps Script (appsScriptURL) que
+// genere y mande un código al correo dado, y devuelve el código que
+// efectivamente envió (el propio script lo genera; acá solo lo recibimos para
+// poder validarlo después). La URL no está fija en el código: llega desde
+// Firestore (config/servidor -> url_pstm) y se pasa como parámetro.
+func enviarCodigo(appsScriptURL, correo string) (string, error) {
 	payload, err := json.Marshal(map[string]string{"correo": correo})
 	if err != nil {
 		return "", err
